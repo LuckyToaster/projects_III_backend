@@ -37,20 +37,19 @@ app.get('/api/areas', async (_, res) => { res.send(await Area.find()) })
     Community and area however, don't match as substrings and only match with case insensitive equivalents
     api/cards (base URL, returns all cards)
     FILTERS:
-        title="space separated values"
+        title=space separated values 
         tagsAny=comma,separated,values
         tagsAll=comma,separated,values
         community=value
         area=value
     You can combine these filters
     EXAMPLE: /api/cards?title="best tutor ever"&tagsAny=Math,it&tagsAll=algorithms
+    EXAMPLE: /api/cards?tagsAny=it&tagsAll=programming,algorithms&title=best%20programmer&area=madrid&community=madrid
 */
 app.get('/api/cards', async (req, res) => { 
     try {
-        if (Object.keys(req.query).length === 0) {
-            const cards = await Card.find().populate('communityId').populate('areaId').populate('tagIds').sort({createdAt: -1})
-            res.send(cards)
-        }
+        if (Object.keys(req.query).length === 0) 
+            res.send(await getPopulatedCards())
 
         let filter: any = {};
 
@@ -75,11 +74,15 @@ app.get('/api/cards', async (req, res) => {
             if (req.query.tagsAny) {
                 const tags = (req.query.tagsAny as string).split(',').map(t => new RegExp(t, 'i'))
                 anyTagIds = (await Tag.find({name:{$in: tags}})).map(t => t._id)
+                console.log(tags)
+                console.log(anyTagIds)
             }
 
             if (req.query.tagsAll) {
                 const tags = (req.query.tagsAll as string).split(',').map(t => new RegExp(t, 'i'))
-                allTagIds = (await Tag.find({name:{$all: tags}})).map(t => t._id)
+                allTagIds = (await Tag.find({name:{$in: tags}})).map(t => t._id)
+                console.log(tags)
+                console.log(allTagIds)
             }
 
             if (anyTagIds.length && allTagIds.length) 
@@ -88,7 +91,7 @@ app.get('/api/cards', async (req, res) => {
             else if (allTagIds.length) filter.tagIds = {$all: allTagIds}
         }
 
-        res.send(await Card.find(filter).sort({createdAt: -1}))
+        res.send(await getPopulatedCards(filter))
     } catch (error) {
         res.status(500).send({ error: 'Invalid URL' });
     }
@@ -98,6 +101,15 @@ app.get('/api/cards', async (req, res) => {
 // POST user
 // POST card (for a given user)
 // POST card
+
+async function getPopulatedCards(filter: any = {}) {
+    return await Card.find(filter)
+        .populate('communityId')
+        .populate('areaId')
+        .populate('tagIds')
+        .populate('contactId')
+        .sort({createdAt: -1})
+}
 
 app.listen(3000, '0.0.0.0', () => console.log('=> Server running'))
 
