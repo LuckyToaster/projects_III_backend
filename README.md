@@ -1,12 +1,17 @@
-# installation
+## Dependencies (pre-install):
+* Have `git` installed
+* Have `npm` installed
+* Have `mongodb` installed
 
-## Requisites:
-* `git` installed
-* `npm` installed
-* `mongodb` installed
+## Installation
+1. `git clone https://luckytoaster/salsa_backend`
+2. `cd salsa_backend`
+3. `npm install`
+4. Make sure `mongod` is running with: `systemctl status mongod`
+5. Restore the database: `mongorestore --db=salsa_db ./salsa_db_backup/salsa_db`
 
-1. clone the repo
-2. cd into the repo
-3. npm install
-4. make sure `mongod` is running with: `systemctl status mongod`
-5. 
+## Post Install
+* Run the server locally with: `npm start`
+
+
+
