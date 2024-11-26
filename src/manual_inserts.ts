@@ -1,6 +1,3 @@
-
-// PLEASE DO NOT ATTEMPT ANY MANUAL INSERTS
-
 /*
 const u1 = new User({email: 'user@mail.com', password: 'userpassword'})
 const u2= new User({email: 'user2@mail.com', password: 'user2password'}) 
