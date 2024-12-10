@@ -1,27 +1,19 @@
-import express, { Request, Response} from 'express'
 import fs from 'fs'
 import path from 'path'
 import cors from 'cors'
 import multer from 'multer' 
 import * as DB from './connection'
+import express, { Request, Response} from 'express'
 
-const upload = multer({ storage: multer.memoryStorage() })
 const app = express()
+const upload = multer({ storage: multer.memoryStorage() }) // this is middleware needed for receiving FormData
 const PICTURES_PATH = path.join(__dirname, '..', 'pfps')
-if (!fs.existsSync(PICTURES_PATH)) {
-    fs.mkdirSync(PICTURES_PATH, { recursive: true })
-}
+const PORT = 3000
 
 app.use(express.json())
 app.use(cors({ origin: '*', methods: 'GET, POST', credentials: true }))
-
-// these are just for seeing what's in the DB
-app.get('/api/users', async (_, res) => { res.send(await DB.User.find()) })
-app.get('/api/contacts', async (_, res) => { res.send(await DB.Contact.find()) })
-app.get('/api/tags', async (_, res) => { res.send(await DB.Tag.find()) })
-app.get('/api/communities', async (_, res) => { res.send(await DB.Community.find()) })
-app.get('/api/areas', async (_, res) => { res.send(await DB.Area.find()) })
-app.get('/api/user/:id', async (req, res) => { res.send(await DB.User.findById(req.params.id)) }) // validate these so server doenst crash on bad urls
+if (!fs.existsSync(PICTURES_PATH)) 
+    fs.mkdirSync(PICTURES_PATH, { recursive: true })
 
 /*
     All the filters go in a case insensitive regex, meaning: 'math' will match with 'MaTH' and 'Mathematics'
@@ -39,18 +31,18 @@ app.get('/api/user/:id', async (req, res) => { res.send(await DB.User.findById(r
 */
 app.get('/api/cards', async (req, res) => { await getCards(req, res) })
 app.get('/api/user/:email/:password', async (req, res) => { await getUser(req, res)})
+app.get('/api/pfp/:filename', async (req, res) => getPfp(req, res))
+app.post('/api/user', async (req, res) => { await postUser(req, res) })                                 // requires a 'email' and 'password'
+app.post('/api/contact', async (req, res) => { await postContact(req, res) })                       // requires 'userId', 'email' and 'phoneNum'
+app.post('/api/card', upload.single('file'), async (req, res) => { await postCard(req, res) })      // can include an image
 
-app.get('/api/pfp/:filename', async (req, res) => {
-    res.set('Cache-control', 'public, max-age=1d') 
-    res.sendFile(`${PICTURES_PATH}/${req.params.filename}`, _ => res.status(404).send('File not found, or worse'))
-    //res.sendFile(path.join(__dirname, '..', 'pfps', req.params.filename), _ => res.status(404).send('File not found or worse'))
-})
-
-app.post('/api/user', async (req, res) => await postUser(req, res)) // requires a 'email' and 'password'
-app.post('/api/contact', async (req, res) => { await postContact(req, res) }) // requires 'userId' (to relate to user), and at least 'email' and 'phoneNum'
-app.post('/api/card', upload.single('file'), async (req, res) => { await postCard(req, res) }) // can include an image
-
-app.listen(3000, '0.0.0.0', () => console.log('=> Server running'))
+// these are just for seeing what's in the DB
+app.get('/api/users', async (_, res) => { res.send(await DB.User.find()) })
+app.get('/api/contacts', async (_, res) => { res.send(await DB.Contact.find()) })
+app.get('/api/tags', async (_, res) => { res.send(await DB.Tag.find()) })
+app.get('/api/communities', async (_, res) => { res.send(await DB.Community.find()) })
+app.get('/api/areas', async (_, res) => { res.send(await DB.Area.find()) })
+app.listen(PORT, '0.0.0.0', () => console.log('=> Server running'))
 
 
 function exactRegex(val: any) {
@@ -60,6 +52,15 @@ function exactRegex(val: any) {
 
 function regex(val: any) {
     return {$regex: val, $options: 'i'}
+}
+
+
+function getPfp(req: Request, res: Response) {
+    res.set('Cache-control', 'public, max-age=1d') 
+    res.sendFile(`${PICTURES_PATH}/${req.params.filename}`, err => {
+        if (err && !res.headersSent) 
+            res.status(404).send('File not found')
+    })
 }
 
 
@@ -115,7 +116,7 @@ async function getUser(req: Request, res: Response) {
 
 async function postUser(req: Request, res: Response) {
     const u = await DB.User.create(new DB.User({email: req.body.email, password: req.body.password}))
-    if (!u) res.status(409).send({ error: "Couln't create user, bad request perhaps? Or maybe user already exists?"})
+    if (!u) return res.status(409).send({ error: "Couln't create user, bad request perhaps? Or maybe user already exists?"})
     res.status(201).send({userId: u._id})
 }
 
@@ -130,7 +131,7 @@ async function postContact(req: Request, res: Response) {
     })
 
     const c = await DB.Contact.create(new DB.Contact(contactData))
-    if (!c) res.status(500).send('invalid document, could not insert into DB')
+    if (!c) return res.status(500).send('Json sent to create user not valid. Check that document keys match DB collection keys')
     res.status(201).send({contactId: c._id})
 }
 
