@@ -1,12 +1,16 @@
 import express, { Request, Response} from 'express'
 import fs from 'fs'
+import path from 'path'
 import cors from 'cors'
 import multer from 'multer' 
 import * as DB from './connection'
 
 const upload = multer({ storage: multer.memoryStorage() })
 const app = express()
-const PICTURES_PATH = './pfps'
+const PICTURES_PATH = path.join(__dirname, '..', 'pfps')
+if (!fs.existsSync(PICTURES_PATH)) {
+    fs.mkdirSync(PICTURES_PATH, { recursive: true })
+}
 
 app.use(express.json())
 app.use(cors({ origin: '*', methods: 'GET, POST', credentials: true }))
@@ -34,14 +38,7 @@ app.get('/api/user/:id', async (req, res) => { res.send(await DB.User.findById(r
     EXAMPLE: /api/cards?tagsAny=it&tagsAll=programming,algorithms&title=best%20programmer&area=madrid&community=madrid
 */
 app.get('/api/cards', async (req, res) => { await getCards(req, res) })
-
-app.get('/api/user/:email/:password', async (req, res) => { 
-    const u = await DB.User.findOne({email: req.params.email, password: req.params.password})
-    if (u) {
-        const c = await DB.Contact.findOne({userId: u?._id})
-        res.json({userId: u?._id, contactId: c?._id}) 
-    } else res.status(500).send('Failed to GET user. Bad URL perhaps?')
-})
+app.get('/api/user/:email/:password', async (req, res) => { await getUser(req, res)})
 
 app.get('/api/pfp/:filename', async (req, res) => {
     res.set('Cache-control', 'public, max-age=1d') 
@@ -55,34 +52,6 @@ app.post('/api/card', upload.single('file'), async (req, res) => { await postCar
 
 app.listen(3000, '0.0.0.0', () => console.log('=> Server running'))
 
-/*
-    THIS IS HOW YOU WOULD POST DATA AND AN IMAGE
-
-    <form id='form_container'>
-        <input id="msgInput" type="text" placeholder="Message"/>
-        <label for="fileInput" id="customFileInput">
-            <i class="fas fa-image"></i>
-        </label>
-        <input id='fileInput' type="file"/>
-        <button id='submitBtn'><i class="fas fa-paper-plane"></i></button>
-    </form>
-
-    async function post() {
-        const msgInput = document.getElementById('msgInput')
-        const fileInput = document.getElementById('fileInput')
-
-        const fd = new FormData()
-        fd.append('msg', msgInput.value)
-        if (fileInput.files[0] != null) 
-            fd.append('file', fileInput.files[0])
-
-        const res = await fetch(`${URL}insert`, {method: 'POST', body: fd}) // you would send the FormData in the body
-        res.ok ? console.log('POST OK') : console.log('POST ERROR')
-
-        msgInput.value = ''
-        fileInput.value = ''
-    }
-*/
 
 function exactRegex(val: any) {
     return {$regex: `^${val}$`, $options: 'i'}
@@ -135,6 +104,15 @@ async function getCards(req: Request, res: Response) {
 }
 
 
+async function getUser(req: Request, res: Response) {
+    const u = await DB.User.findOne({email: req.params.email, password: req.params.password})
+    if (u) {
+        const c = await DB.Contact.findOne({userId: u?._id})
+        res.json({userId: u?._id, contactId: c?._id}) 
+    } else res.status(500).send('Failed to GET user. Bad URL perhaps?')
+}
+
+
 async function postUser(req: Request, res: Response) {
     const u = await DB.User.create(new DB.User({email: req.body.email, password: req.body.password}))
     if (!u) res.status(409).send({ error: "Couln't create user, bad request perhaps? Or maybe user already exists?"})
@@ -154,84 +132,6 @@ async function postContact(req: Request, res: Response) {
     const c = await DB.Contact.create(new DB.Contact(contactData))
     if (!c) res.status(500).send('invalid document, could not insert into DB')
     res.status(201).send({contactId: c._id})
-}
-
-
-const communities = {
-     "Madrid": "67436fd20aea345911445629",
-     "Cataluña": "67436fd20aea34591144562a",
-     "Andalucía": "67436fd20aea34591144562b",
-     "Valencia": "67436fd20aea34591144562c", 
-     "Galicia": "67436fd20aea34591144562d",
-     "Castilla y León": "67436fd20aea34591144562e",
-     "País Vasco": "67436fd20aea34591144562f",
-     "Canarias": "67436fd20aea345911445630",
-     "Castilla-La Mancha": "67436fd20aea345911445631",
-     "Murcia": "67436fd20aea345911445632",
-     "Aragón": "67436fd20aea345911445633",
-     "Baleares": "67436fd20aea345911445634",
-     "Extremadura": "67436fd20aea345911445635",
-     "Asturias": "67436fd20aea345911445636",
-     "Navarra": "67436fd20aea345911445637",
-     "Cantabria": "67436fd20aea345911445638",
-     "La Rioja": "67436fd20aea345911445639",
-     "Ceuta": "67436fd20aea34591144563a",
-     "Melilla": "67436fd20aea34591144563b"
-}
-
-const areas = {
-   "Madrid": "67437a0c1b1040f78d24bab1",
-   "Barcelona": "67437a0c1b1040f78d24bab2",
-   "Girona": "67437a0c1b1040f78d24bab3",
-   "Lleida": "67437a0c1b1040f78d24bab4",
-   "Tarragona": "67437a0c1b1040f78d24bab5",
-   "Almería": "67437a0c1b1040f78d24bab6",
-   "Cádiz": "67437a0c1b1040f78d24bab7",
-   "Córdoba": "67437a0c1b1040f78d24bab8",
-   "Granada": "67437a0c1b1040f78d24bab9",
-   "Huelva": "67437a0c1b1040f78d24baba",
-   "Jaén": "67437a0c1b1040f78d24babb",
-   "Málaga": "67437a0c1b1040f78d24babc",
-   "Sevilla": "67437a0c1b1040f78d24babd",
-   "Alicante": "67437a0c1b1040f78d24babe",
-   "Castellón": "67437a0c1b1040f78d24babf",
-   "Valencia": "67437a0c1b1040f78d24bac0",
-   "A Coruña": "67437a0c1b1040f78d24bac1",
-   "Lugo": "67437a0c1b1040f78d24bac2",
-   "Ourense": "67437a0c1b1040f78d24bac3",
-   "Pontevedra": "67437a0c1b1040f78d24bac4",
-   "Ávila": "67437a0c1b1040f78d24bac5",
-   "Burgos": "67437a0c1b1040f78d24bac6",
-   "León": "67437a0c1b1040f78d24bac7",
-   "Palencia": "67437a0c1b1040f78d24bac8",
-   "Salamanca": "67437a0c1b1040f78d24bac9",
-   "Segovia": "67437a0c1b1040f78d24baca",
-   "Soria": "67437a0c1b1040f78d24bacb",
-   "Valladolid": "67437a0c1b1040f78d24bacc",
-   "Zamora": "67437a0c1b1040f78d24bacd",
-   "Álava": "67437a0c1b1040f78d24bace",
-   "Guipúzcoa": "67437a0c1b1040f78d24bacf",
-   "Vizcaya": "67437a0c1b1040f78d24bad0",
-   "Las Palmas": "67437a0c1b1040f78d24bad1",
-   "Santa Cruz de Tenerife": "67437a0c1b1040f78d24bad2",
-   "Albacete": "67437a0c1b1040f78d24bad3",
-   "Ciudad Real": "67437a0c1b1040f78d24bad4",
-   "Cuenca": "67437a0c1b1040f78d24bad5",
-   "Guadalajara": "67437a0c1b1040f78d24bad6",
-   "Toledo": "67437a0c1b1040f78d24bad7",
-   "Murcia": "67437a0c1b1040f78d24bad8",
-   "Huesca": "67437a0c1b1040f78d24bad9",
-   "Teruel": "67437a0c1b1040f78d24bada",
-   "Zaragoza": "67437a0c1b1040f78d24badb",
-   "Islas Baleares": "67437a0c1b1040f78d24badc",
-   "Badajoz": "67437a0c1b1040f78d24badd",
-   "Cáceres": "67437a0c1b1040f78d24bade",
-   "Asturias": "67437a0c1b1040f78d24badf",
-   "Navarra": "67437a0c1b1040f78d24bae0",
-   "Cantabria": "67437a0c1b1040f78d24bae1",
-   "La Rioja": "67437a0c1b1040f78d24bae2",
-   "Ceuta": "67437a0c1b1040f78d24bae3",
-   "Melilla": "67437a0c1b1040f78d24bae4"
 }
 
 
@@ -262,7 +162,7 @@ async function postCard(req: Request, res: Response) {
     }
 
     // update the card to contain the pfp
-    const cardWithPfp = await DB.Card.findOneAndUpdate({id: card._id}, {pictures: [filename]})
+    const cardWithPfp = await DB.Card.findOneAndUpdate({_id: card._id}, {pictures: [filename]})
     if (!cardWithPfp) return res.status(500).send('Coulnt update the card with the picture, wtf?')
     res.status(201).send('Card inserted, picture saved')
 }
