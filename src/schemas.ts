@@ -12,7 +12,6 @@ const user = new Schema(
     { timestamps: true, versionKey: false } 
 )
 
-
 const contact = new Schema(
     {
         userId: { type: ObjectId, ref: 'users', required: true, unique: true },  // one contact per user
